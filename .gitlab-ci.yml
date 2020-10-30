@@ -8,4 +8,8 @@ before_script:
 
 job:
   stage: build
-  script: "pio run -e esp32dev"
+  script:
+    - "VERSION=$(sed -e 's/^.*FW_VERSION //;s/\"//g' <src/config.hpp)"
+    - "echo $VERSION"
+    - "pio run -e esp32dev"
+    - "curl -T .pio/build/esp32dev/firmware.bin -umartykan:$BINTRAY_KEY https://api.bintray.com/content/airguard/firmware/esp32-main/$VERSION/firmware.bin"
