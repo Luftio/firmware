@@ -9,7 +9,7 @@ before_script:
 job:
   stage: build
   script:
-    - "VERSION=$(sed -n 's/^.*FW_VERSION \"\(.*\)\"/\1/p' <config.hpp)"
+    - "VERSION=$(sed -n 's/^.*FW_VERSION \\\"\\(.*\\)\\\"/\\1/p' <config.hpp)"
     - "echo $VERSION"
     - "pio run -e esp32dev"
     - "curl -T .pio/build/esp32dev/firmware.bin -umartykan:$BINTRAY_KEY https://api.bintray.com/content/airguard/firmware/esp32-main/$VERSION/firmware.bin"
