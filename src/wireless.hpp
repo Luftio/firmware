@@ -9,11 +9,8 @@ namespace Wireless
     void saveNetwork(String name, String pass);
     void connect();
 
-    void checkFWUpdates();
-    void checkFWUpdates(const String& url);
-
     void loop();
     bool mqttReconnect();
-    void mqttCallback(char* topic, byte* payload, unsigned int length);
+    void mqttCallback(char *topic, byte *payload, unsigned int length);
     void uploadData();
-}
+} // namespace Wireless

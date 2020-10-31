@@ -40,7 +40,7 @@ namespace Wireless
         connect();
 
         randomSeed(micros());
-        checkFWUpdates();
+        OTAUpdate::checkFWUpdates();
         Leds::setAnimation(Leds::OFF);
 
         mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -177,50 +177,6 @@ namespace Wireless
 
     void mqttCallback(char *topic, byte *payload, unsigned int length)
     {
-        Serial.print("Message arrived [");
-        Serial.print(topic);
-        Serial.println("] ");
-        char str[length + 1];
-        memcpy(str, payload, length);
-        str[length] = 0;
-        Serial.println(str);
-        if (strcmp(topic, "v1/devices/me/attributes") == 0)
-        {
-            if (strcmp(str, "{\"light\":\"standard\"}") == 0)
-            {
-                Leds::setAnimation(Leds::STANDARD);
-            }
-            else if (strcmp(str, "{\"light\":\"off\"}") == 0)
-            {
-                Leds::setAnimation(Leds::OFF);
-            }
-            else if (strcmp(str, "{\"light\":\"lamp\"}") == 0)
-            {
-                Leds::setAnimation(Leds::LAMP);
-            }
-        }
-        else if (strcmp(topic, "v1/devices/me/attributes/response/1") == 0)
-        {
-            if (strcmp(str, "{\"shared\":{\"light\":\"standard\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::STANDARD);
-            }
-            else if (strcmp(str, "{\"shared\":{\"light\":\"off\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::OFF);
-            }
-            else if (strcmp(str, "{\"shared\":{\"light\":\"lamp\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::LAMP);
-            }
-        }
-        else if (strstr(str, "v1/devices/me/rpc/request/") != NULL)
-        {
-            if (strcmp(str, "{\"method\":\"reboot\",\"params\":\"{}\"}"))
-            {
-                ESP.restart();
-            }
-        }
     }
 
     void uploadData()
