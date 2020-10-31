@@ -3,13 +3,11 @@ image: python:2.7
 stages:
  - build
  - publish
-
-before_script:
-  - "pip install -U platformio"
-
+ 
 build_job:
   stage: build
   script:
+    - "pip install -U platformio"
     - "VERSION=$(sed -n 's/^.*FW_VERSION \\\"\\(.*\\)\\\"/\\1/p' <src/config.hpp)"
     - "echo $VERSION"
     - "pio run -e esp32dev"
