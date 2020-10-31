@@ -26,7 +26,7 @@ void setup()
 
 void loop()
 {
-    /*Buttons::one.update();
+    Buttons::one.update();
     if (Buttons::one.isJustReleased())
     {
         if (Leds::animation == Leds::STANDARD)
@@ -36,9 +36,12 @@ void loop()
         else if (Leds::animation == Leds::OFF)
         {
             Leds::setAnimation(Leds::LAMP);
-            Leds::setBrightness(255);
         }
         else if (Leds::animation == Leds::LAMP)
+        {
             Leds::setAnimation(Leds::STANDARD);
-    }*/
+        }
+    }
+
+    Wireless::loop();
 }

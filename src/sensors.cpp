@@ -62,7 +62,8 @@ namespace Sensors
             &TaskSensorsCalibrate);
     }
 
-    void debugI2C() {
+    void debugI2C()
+    {
         Serial.println(" Scanning I2C Addresses");
         uint8_t cnt = 0;
         for (uint8_t i = 0; i < 128; i++)
@@ -87,11 +88,14 @@ namespace Sensors
         Serial.println(" I2C Devices found.");
     }
 
-    bool isWarmedUp() {
-        if(warmedUp) {
+    bool isWarmedUp()
+    {
+        if (warmedUp)
+        {
             return true;
         }
-        if(millis() > 300000) {
+        if (millis() > 300000)
+        {
             warmedUp = true;
             return true;
         }
@@ -131,7 +135,7 @@ namespace Sensors
 
     void TaskSensorsCalibrateRun(void *parameter)
     {
-        for (int i = 0;true;i++)
+        for (int i = 0; true; i++)
         {
             float hum = readHumidity();
             float temp = readTemperature();
@@ -147,7 +151,7 @@ namespace Sensors
             Serial.print(readPressure());
             Serial.print(" temp = ");
             Serial.println(temp);
-            Leds::setStatus(min((CO2-400)/16, 255));
+            Leds::setStatus(min((CO2 - 400) / 16, 255));
             vTaskDelay(10000 / portTICK_PERIOD_MS);
         }
     }

@@ -1,5 +1,10 @@
-#define WIFI_ID "AIRGUARD001"
-#define API_URL "http://demo.thingsboard.io/api/v1/gEletsVp1rOjSdQDy0nj/telemetry"
+#define WIFI_ID "AIRGUARD_"
 
-#define FW_VERSION "100"
-#define FW_UPDATE_URL "http://webhook.site/1f230929-b215-4ff5-8656-f4d0def56eb9"
+#define FW_VERSION "101"
+#define FW_UPDATE_URL "http://dl.bintray.com/airguard/firmware/firmware.bin"
+
+#define MQTT_SERVER "demo.thingsboard.io"
+#define MQTT_PORT 1883
+#define MQTT_VERSION_3_1
+
+const uint8_t apiEncrypt[6] = {***REMOVED***};

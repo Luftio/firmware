@@ -4,7 +4,7 @@ namespace Sensors
 {
     void begin();
     void debugI2C();
-    
+
     bool isWarmedUp();
     unsigned short readCO2();
     float readTemperature();
@@ -13,4 +13,4 @@ namespace Sensors
     float readHumidity();
 
     void TaskSensorsCalibrateRun(void *parameter);
-}
+} // namespace Sensors

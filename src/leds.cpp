@@ -4,12 +4,13 @@
 #include "pinout.hpp"
 
 namespace Leds
-{   
+{
     TaskHandle_t TaskLedAnimate;
 
     CRGB leds[LED_COUNT];
-    
+
     Animation animation = OFF;
+    unsigned char brightness = 255;
     unsigned char status = 0;
     unsigned char lastStatus = 0;
 
@@ -18,7 +19,7 @@ namespace Leds
         FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(UncorrectedColor);
         FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
 
-        setBrightness(255);
+        FastLED.setBrightness(255);
 
         // Set up animation task
         xTaskCreate(
@@ -34,13 +35,17 @@ namespace Leds
     {
         if (animation == STANDARD)
         {
-            for(int i = 1; i <= abs(status - lastStatus); i++) {
-                if(status < lastStatus) {
-                    FastLED.showColor(CRGB(lastStatus-i, 255-lastStatus+i, 0));
-                } else {
-                    FastLED.showColor(CRGB(lastStatus+i, 255-lastStatus-i, 0));
+            for (int i = 1; i <= abs(status - lastStatus); i++)
+            {
+                if (status < lastStatus)
+                {
+                    FastLED.showColor(CRGB(lastStatus - i, 255 - lastStatus + i, 0), brightness);
                 }
-                vTaskDelay(min(1000/abs(status - lastStatus),50) / portTICK_PERIOD_MS);
+                else
+                {
+                    FastLED.showColor(CRGB(lastStatus + i, 255 - lastStatus - i, 0), brightness);
+                }
+                vTaskDelay(min(1000 / abs(status - lastStatus), 50) / portTICK_PERIOD_MS);
             }
             lastStatus = status;
         }
@@ -51,9 +56,9 @@ namespace Leds
 
             for (unsigned char i = 0; i < LED_COUNT; i++)
             {
-                if (time/2 > i*256/LED_COUNT)
+                if (time / 2 > i * 256 / LED_COUNT)
                 {
-                    unsigned char c = sin8(time/2 - i*256/LED_COUNT);
+                    unsigned char c = sin8(time / 2 - i * 256 / LED_COUNT);
                     leds[i] = CRGB((animation == SETUP) ? 0 : c, (animation == SETUP) ? 0 : c, c);
                 }
             }
@@ -61,38 +66,55 @@ namespace Leds
         }
         else if (animation == LAMP)
         {
-            FastLED.showColor(CRGB::White);
+            FastLED.showColor(CRGB::SandyBrown, brightness);
+            lastStatus = 0;
+        }
+        else if (animation == OFF)
+        {
+            FastLED.clear(true);
+            delay(3);
+            FastLED.clear(true);
+            lastStatus = 0;
         }
 
-        if(animation == STARTUP || animation == SETUP) {
+        if (animation == STARTUP || animation == SETUP)
+        {
             vTaskDelay(20 / portTICK_PERIOD_MS);
-        } else {
+        }
+        else
+        {
             vTaskSuspend(NULL);
         }
     }
 
-    void setAnimation(Animation newAnimation) {
+    void setAnimation(Animation newAnimation)
+    {
         animation = newAnimation;
         vTaskResume(TaskLedAnimate);
     }
 
-    void setBrightness(unsigned char brightness)
+    void setBrightness(unsigned char newBrightness)
     {
-        FastLED.setBrightness(brightness);
+        brightness = newBrightness;
+        vTaskResume(TaskLedAnimate);
     }
 
     void setStatus(unsigned char newStatus)
     {
         lastStatus = status;
         status = newStatus;
-        
-        vTaskResume(TaskLedAnimate);
+
+        if (animation == STANDARD)
+        {
+            vTaskResume(TaskLedAnimate);
+        }
     }
 
-    void TaskLedAnimateRun(void *parameter) {
+    void TaskLedAnimateRun(void *parameter)
+    {
         for (;;)
         {
             update();
         }
     }
-}
+} // namespace Leds

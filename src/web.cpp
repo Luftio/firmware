@@ -3,8 +3,9 @@
 #include "wireless.hpp"
 #include "web.hpp"
 
-namespace Web {
-    PROGMEM const char* htmlConnect = R"(
+namespace Web
+{
+    PROGMEM const char *htmlConnect = R"(
 <html>
 <head>
 <title>AirGuard</title>
@@ -58,7 +59,8 @@ button.connect {
     )";
     std::unique_ptr<WebServer> server;
 
-    void begin() {
+    void begin()
+    {
         server.reset(new WebServer(80));
         server->on("/", routeRoot);
         server->on("/api/scan", routeScan);
@@ -67,26 +69,31 @@ button.connect {
         server->begin();
     }
 
-    void handleClient() {
+    void handleClient()
+    {
         server->handleClient();
     }
 
-    void close() {
+    void close()
+    {
         server->stop();
         server.reset();
         server.release();
     }
-    
-    void routeRoot() {
+
+    void routeRoot()
+    {
         Serial.println("Route root");
-        server->send(200, "text/html",  htmlConnect); 
+        server->send(200, "text/html", htmlConnect);
     }
-    
-    void routeScan() {
+
+    void routeScan()
+    {
         Serial.println("Route scan");
         String body = "[";
         int n = WiFi.scanNetworks();
-        for(int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
+        {
             body += "{\"ssid\":\"";
             body += WiFi.SSID(i);
             body += "\",\"secured\":\"";
@@ -94,15 +101,17 @@ button.connect {
             body += "\"}";
         }
         body += "]";
-        server->send(200, "application/json", body); 
+        server->send(200, "application/json", body);
     }
-    
-    void routeConnect() {
-        if(!server->hasArg("ssid")) {
-            server->send(200, "text/html", "Invalid args"); 
+
+    void routeConnect()
+    {
+        if (!server->hasArg("ssid"))
+        {
+            server->send(200, "text/html", "Invalid args");
             return;
         }
-        server->send(200, "text/html", "Connecting"); 
+        server->send(200, "text/html", "Connecting");
 
         Serial.print("Connecting to ");
         Serial.print(server->arg("ssid"));
@@ -111,9 +120,10 @@ button.connect {
         Wireless::saveNetwork(server->arg("ssid"), server->arg("pass"));
     }
 
-    void routeNotFound() {
+    void routeNotFound()
+    {
         Serial.println("Route not found");
         server->sendHeader("Location", "http://192.168.4.1/");
-        server->send(302, "text/html", " "); 
+        server->send(302, "text/html", " ");
     }
-}
+} // namespace Web

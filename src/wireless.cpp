@@ -2,56 +2,70 @@
 #include "DNSServer.h"
 #include "HTTPClient.h"
 #include "HTTPUpdate.h"
+#include "PubSubClient.h"
 
 #include "wireless.hpp"
 #include "sensors.hpp"
 #include "config.hpp"
 #include "web.hpp"
 #include "leds.hpp"
+#include "otaupdate.hpp"
 
 namespace Wireless
 {
     Preferences preferences;
     bool connecting = false;
     std::unique_ptr<DNSServer> dnsServer;
-    TaskHandle_t TaskUploadData;
+
+    WiFiClient wifiClient;
+    PubSubClient mqttClient(wifiClient);
+
+    char macStr[20];
+    char authKey[20];
+    char apSSID[20];
 
     void begin()
     {
-        preferences.begin("airguard-wifi", false); 
-        // preferences.putString("wifi_name", "ayy");
+        preferences.begin("airguard-wifi", false);
+        uint8_t mac[6];
+
+        esp_efuse_mac_get_default(mac);
+        snprintf(apSSID, 20, "%s%02X%02X", WIFI_ID, mac[4], mac[5]);
+        snprintf(macStr, 20, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        snprintf(authKey, 20, "%02X%02X%02X%02X%02X%02X", mac[0] ^ apiEncrypt[0], mac[1] ^ apiEncrypt[1], mac[2] ^ apiEncrypt[2], mac[3] ^ apiEncrypt[3], mac[4] ^ apiEncrypt[4], mac[5] ^ apiEncrypt[5]);
+        Serial.println(macStr);
+        Serial.println(apSSID);
+        Serial.println(authKey);
+
         connect();
 
+        randomSeed(micros());
         checkFWUpdates();
-        Leds::setAnimation(Leds::STANDARD);
+        Leds::setAnimation(Leds::OFF);
 
-        // Set up upload task
-        xTaskCreate(
-            TaskUploadDataRun,
-            "TaskUploadData",
-            10000,
-            NULL,
-            0,
-            &TaskUploadData);
+        mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+        mqttClient.setCallback(mqttCallback);
     }
 
-    void provision() 
+    void provision()
     {
         Leds::setAnimation(Leds::SETUP);
         Serial.println("Begining provisioning");
         WiFi.disconnect();
-        WiFi.softAP(WIFI_ID, NULL, 1, 0, 4);
+        WiFi.softAP(apSSID, NULL, 1, 0, 4);
 
         dnsServer.reset(new DNSServer());
         dnsServer->setErrorReplyCode(DNSReplyCode::NoError);
-        dnsServer->start(53 , "*", WiFi.softAPIP());
+        dnsServer->start(53, "*", WiFi.softAPIP());
         Web::begin();
 
-        for(;;) {
+        for (;;)
+        {
             dnsServer->processNextRequest();
             Web::handleClient();
 
-            if(connecting) {
+            if (connecting)
+            {
                 connecting = false;
                 dnsServer->stop();
                 dnsServer.reset();
@@ -64,7 +78,8 @@ namespace Wireless
         }
     }
 
-    void saveNetwork(String name, String pass) {
+    void saveNetwork(String name, String pass)
+    {
         preferences.putString("wifi_name", name);
         preferences.putString("wifi_pass", pass);
         connecting = true;
@@ -75,23 +90,28 @@ namespace Wireless
         Leds::setAnimation(Leds::STARTUP);
         String savedWifi = preferences.getString("wifi_name", "");
         String savedWifiPass = preferences.getString("wifi_pass", "");
-        if(savedWifi.length() == 0) {
+        if (savedWifi.length() == 0)
+        {
             provision();
             return;
         }
         Serial.print("Connecting to saved WiFi ");
         Serial.println(savedWifi);
         WiFi.begin(savedWifi.c_str(), savedWifiPass.c_str());
-        
+
         int connectionAttempts = 0;
-        while (WiFi.status() != WL_CONNECTED) {
+        while (WiFi.status() != WL_CONNECTED)
+        {
             delay(500);
             Serial.print(".");
             connectionAttempts++;
-            if(connectionAttempts >= 60) {
+            if (connectionAttempts >= 60)
+            {
                 provision();
                 return;
-            } else if(connectionAttempts % 20 == 0) {
+            }
+            else if (connectionAttempts % 20 == 0)
+            {
                 WiFi.begin(savedWifi.c_str(), savedWifiPass.c_str());
             }
         }
@@ -102,69 +122,125 @@ namespace Wireless
         Serial.println(WiFi.localIP());
     }
 
-    void TaskUploadDataRun(void *parameter)
+    long lastUpload = 0;
+    long lastReconnectAttempt = 0;
+
+    void loop()
     {
-        for (;;)
+        if (WiFi.status() != WL_CONNECTED)
         {
-            uploadData();
-            vTaskDelay(60000 / portTICK_PERIOD_MS);
+            connect();
+            return;
+        }
+        unsigned long now = millis();
+        if (!mqttClient.connected())
+        {
+            if (now - lastReconnectAttempt > 5000)
+            {
+                Serial.println("MQTT attempting reconnect");
+                lastReconnectAttempt = now;
+                if (mqttReconnect())
+                {
+                    lastReconnectAttempt = 0;
+                }
+            }
+        }
+        else
+        {
+            mqttClient.loop();
+
+            if (now - lastUpload > 60000)
+            {
+                lastUpload = now;
+                uploadData();
+            }
+        }
+    }
+
+    bool mqttReconnect()
+    {
+        if (mqttClient.connect(authKey, authKey, ""))
+        {
+            mqttClient.subscribe("v1/devices/me/attributes");
+            mqttClient.subscribe("v1/devices/me/attributes/response/+");
+            mqttClient.subscribe("v1/devices/me/rpc/request/+");
+            String body = "{\"sharedKeys\":\"light\"}";
+            mqttClient.publish("v1/devices/me/attributes/request/1", body.c_str());
+        }
+        else
+        {
+            Serial.print("MQTT failed, rc=");
+            Serial.println(mqttClient.state());
+        }
+        return mqttClient.connected();
+    }
+
+    void mqttCallback(char *topic, byte *payload, unsigned int length)
+    {
+        Serial.print("Message arrived [");
+        Serial.print(topic);
+        Serial.println("] ");
+        char str[length + 1];
+        memcpy(str, payload, length);
+        str[length] = 0;
+        Serial.println(str);
+        if (strcmp(topic, "v1/devices/me/attributes") == 0)
+        {
+            if (strcmp(str, "{\"light\":\"standard\"}") == 0)
+            {
+                Leds::setAnimation(Leds::STANDARD);
+            }
+            else if (strcmp(str, "{\"light\":\"off\"}") == 0)
+            {
+                Leds::setAnimation(Leds::OFF);
+            }
+            else if (strcmp(str, "{\"light\":\"lamp\"}") == 0)
+            {
+                Leds::setAnimation(Leds::LAMP);
+            }
+        }
+        else if (strcmp(topic, "v1/devices/me/attributes/response/1") == 0)
+        {
+            if (strcmp(str, "{\"shared\":{\"light\":\"standard\"}}") == 0)
+            {
+                Leds::setAnimation(Leds::STANDARD);
+            }
+            else if (strcmp(str, "{\"shared\":{\"light\":\"off\"}}") == 0)
+            {
+                Leds::setAnimation(Leds::OFF);
+            }
+            else if (strcmp(str, "{\"shared\":{\"light\":\"lamp\"}}") == 0)
+            {
+                Leds::setAnimation(Leds::LAMP);
+            }
+        }
+        else if (strstr(str, "v1/devices/me/rpc/request/") != NULL)
+        {
+            if (strcmp(str, "{\"method\":\"reboot\",\"params\":\"{}\"}"))
+            {
+                ESP.restart();
+            }
         }
     }
 
     void uploadData()
     {
-        if (WiFi.status() != WL_CONNECTED) {
-            connect();
-            return;
-        }
-
-        if(!Sensors::isWarmedUp()) {
-            Serial.println("Not warmed up yet");
-            return;
-        }
-
-        Serial.println("Uploading results...");
-        HTTPClient client;
-        if (!client.begin(API_URL)) {
-            Serial.println("connection failed");
-            return;
-        }
-
-        try {
-            client.addHeader("Content-Type", "application/json");
-            String body = "{";
+        String body = "{";
+        if (Sensors::isWarmedUp())
+        {
             body += "\"co2\":";
             body += Sensors::readCO2();
-            body += ",\"hum\":";
-            body += Sensors::readHumidity();
-            body += ",\"temp\":";
-            body += Sensors::readTemperature();
-            body += ",\"pres\":";
-            body += Sensors::readPressure();
-            body += "}";
-            Serial.println(body);
-            int httpResponseCode = client.POST(body);
-            Serial.println("HTTP response " + httpResponseCode);
-        } catch(...) {
-            Serial.println("Error occured while uploading");
+            body += ",";
         }
+        body += "\"hum\":";
+        body += Sensors::readHumidity();
+        body += ",\"temp\":";
+        body += Sensors::readTemperature();
+        body += ",\"pres\":";
+        body += Sensors::readPressure();
+        body += "}";
+        Serial.println(body);
+
+        mqttClient.publish("v1/devices/me/telemetry", body.c_str());
     }
-
-    void checkFWUpdates() {
-        WiFiClient client;
-        t_httpUpdate_return ret = httpUpdate.update(client, FW_UPDATE_URL, FW_VERSION);
-        switch (ret) {
-        case HTTP_UPDATE_FAILED:
-            Serial.printf("HTTP_UPDATE_FAILED Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-            break;
-
-        case HTTP_UPDATE_NO_UPDATES:
-            Serial.println("HTTP_UPDATE_NO_UPDATES");
-            break;
-
-        case HTTP_UPDATE_OK:
-            Serial.println("HTTP_UPDATE_OK");
-            break;
-        }
-    }
-}
+} // namespace Wireless

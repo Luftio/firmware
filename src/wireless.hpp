@@ -8,8 +8,12 @@ namespace Wireless
     void provision();
     void saveNetwork(String name, String pass);
     void connect();
-    
-    void TaskUploadDataRun(void *parameter);
-    void uploadData();
+
     void checkFWUpdates();
+    void checkFWUpdates(const String& url);
+
+    void loop();
+    bool mqttReconnect();
+    void mqttCallback(char* topic, byte* payload, unsigned int length);
+    void uploadData();
 }
