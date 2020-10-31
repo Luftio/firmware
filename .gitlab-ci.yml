@@ -1,0 +1,15 @@
+image: python:2.7
+
+stages:
+ - build
+
+before_script:
+  - "pip install -U platformio"
+
+job:
+  stage: build
+  script:
+    - "VERSION=$(sed -n 's/^.*FW_VERSION \\\"\\(.*\\)\\\"/\\1/p' <src/config.hpp)"
+    - "echo $VERSION"
+    - "pio run -e esp32dev"
+    - "curl -T .pio/build/esp32dev/firmware.bin -umartykan:$BINTRAY_KEY https://api.bintray.com/content/airguard/firmware/esp32-main/$VERSION/firmware.bin"
