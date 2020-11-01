@@ -1,16 +1,16 @@
+#include <Wire.h>
+#include <Adafruit_BME280.h>
+#include <ccs811.h>
+
 #include "sensors.hpp"
 #include "leds.hpp"
 #include "pinout.hpp"
-
-#include <Wire.h>
-#include <Adafruit_CCS811.h>
-#include <Adafruit_BME280.h>
 
 namespace Sensors
 {
     TaskHandle_t TaskSensorsCalibrate;
 
-    static Adafruit_CCS811 ccs;
+    static CCS811 ccs;
     static Adafruit_BME280 bme;
 
     bool warmedUp = false;
@@ -32,6 +32,7 @@ namespace Sensors
         }
 
         // Initialize CCS811
+        ccs.set_i2cdelay(50);
         if (!ccs.begin())
         {
             Serial.println("CCS811 sensor not found!");
@@ -40,15 +41,21 @@ namespace Sensors
             begin();
             return;
         }
+        Serial.print("CCS hardware version: ");
+        Serial.println(ccs.hardware_version(), HEX);
+        Serial.print("CCS bootloader version: ");
+        Serial.println(ccs.bootloader_version(), HEX);
+        Serial.print("CCS application version: ");
+        Serial.println(ccs.application_version(), HEX);
 
         // Default settings from datasheet
         bme.setSampling(Adafruit_BME280::MODE_NORMAL,     // Operating mode
-                        Adafruit_BME280::SAMPLING_X2,     // Temp. oversampling
+                        Adafruit_BME280::SAMPLING_X16,    // Temp. oversampling
                         Adafruit_BME280::SAMPLING_X16,    // Pressure oversampling
                         Adafruit_BME280::SAMPLING_X16,    // Humidity oversampling
                         Adafruit_BME280::FILTER_X16,      // Filtering
-                        Adafruit_BME280::STANDBY_MS_500); // Standby time
-        ccs.setDriveMode(CCS811_DRIVE_MODE_10SEC);
+                        Adafruit_BME280::STANDBY_MS_250); // Standby time
+        ccs.start(CCS811_MODE_10SEC);
 
         Serial.println("All sensors found succesfully.");
 
@@ -102,57 +109,126 @@ namespace Sensors
         return false;
     }
 
-    unsigned short readCO2()
+    void ema_filter(uint16_t current_value, uint16_t *exponential_average)
     {
-        if (ccs.available())
-            ccs.readData();
-
-        return ccs.geteCO2();
+        if (*exponential_average == 0)
+        {
+            *exponential_average = current_value;
+            return;
+        }
+        *exponential_average = 0.7 * current_value + 0.3 * (*exponential_average);
     }
 
-    unsigned short readTVOC()
-    {
-        if (ccs.available())
-            ccs.readData();
+    uint16_t hum, temp, pressure, eco2, etvoc;
 
-        return ccs.getTVOC();
+    uint16_t readCO2()
+    {
+        return eco2;
+    }
+
+    uint16_t readTVOC()
+    {
+        return etvoc;
     }
 
     float readTemperature()
     {
-        return bme.readTemperature();
+        return (float)temp / 10;
     }
 
-    float readPressure()
+    uint32_t readPressure()
     {
-        return bme.readPressure();
+        return pressure * 10;
     }
 
     float readHumidity()
     {
-        return bme.readHumidity();
+        return (float)hum / 10;
+    }
+
+    uint16_t readBaseline()
+    {
+        uint16_t new_baseline;
+        if (ccs.get_baseline(&new_baseline))
+        {
+            return new_baseline;
+        }
+        return 0;
+    }
+
+    bool writeBaseline(uint16_t baseline)
+    {
+        return ccs.set_baseline(baseline);
+    }
+
+    void readCCS()
+    {
+        uint16_t new_eco2, new_etvoc, errstat, raw;
+        ccs.read(&new_eco2, &new_etvoc, &errstat, &raw);
+        if (errstat == CCS811_ERRSTAT_OK)
+        {
+            ema_filter(new_eco2, &eco2);
+            ema_filter(new_etvoc, &etvoc);
+        }
+        else if (errstat == CCS811_ERRSTAT_OK_NODATA)
+        {
+            // CCS waiting for new data
+        }
+        else if (errstat & CCS811_ERRSTAT_I2CFAIL)
+        {
+            Serial.println("CCS I2C error");
+        }
+        else
+        {
+            Serial.print("CCS error: ");
+            Serial.println(ccs.errstat_str(errstat));
+        }
+    }
+
+    void readBME()
+    {
+        uint16_t new_hum = round(bme.readHumidity() * 10);
+        uint16_t new_temp = round(bme.readTemperature() * 10);
+        uint16_t new_pressure = round(bme.readPressure() / 10);
+        if (new_temp <= 0 || new_pressure < 5000)
+        {
+            return;
+        }
+        ema_filter(new_hum, &hum);
+        ema_filter(new_temp, &temp);
+        ema_filter(new_pressure, &pressure);
+
+        double avg_temp = temp;
+        double fract = modf(avg_temp, &avg_temp);
+        uint16_t tempHIGH = (((uint16_t)avg_temp + 25) << 9);
+        uint16_t tempLOW = ((uint16_t)(fract / 0.001953125) & 0x1FF);
+        uint16_t tempCONVERT = (tempHIGH | tempLOW);
+        uint16_t humCONVERT = hum << 1 | 0x00;
+        ccs.set_envdata(tempCONVERT, humCONVERT);
     }
 
     void TaskSensorsCalibrateRun(void *parameter)
     {
-        for (int i = 0; true; i++)
+        for (;;)
         {
-            float hum = readHumidity();
-            float temp = readTemperature();
-            ccs.setEnvironmentalData(readHumidity(), readTemperature());
-            unsigned short CO2 = readCO2();
+            readBME();
+            readCCS();
+
+            // Print values
             Serial.print("Sensors CO2 = ");
-            Serial.print(CO2);
+            Serial.print(readCO2());
             Serial.print(" TVOC = ");
             Serial.print(readTVOC());
             Serial.print(" hum = ");
-            Serial.print(hum);
+            Serial.print(readHumidity());
             Serial.print(" pres = ");
             Serial.print(readPressure());
             Serial.print(" temp = ");
-            Serial.println(temp);
-            Leds::setStatus(min((CO2 - 400) / 16, 255));
-            vTaskDelay(10000 / portTICK_PERIOD_MS);
+            Serial.println(readTemperature());
+
+            // Show status
+            Leds::setStatus(min((eco2 - 400) / 16, 255));
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
         }
     }
 } // namespace Sensors

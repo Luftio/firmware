@@ -3,7 +3,7 @@ image: python:2.7
 stages:
  - build
  - publish
- 
+
 build_job:
   stage: build
   script:
@@ -20,5 +20,5 @@ publish_bintray:
   stage: publish
   when: manual
   script:
-    - "curl -X DELETE https://api.bintray.com/content/airguard/firmware/esp32-main/1"
+    - "curl -X DELETE -umartykan:$BINTRAY_KEY https://api.bintray.com/content/airguard/firmware/esp32-main/1"
     - "curl -T .pio/build/esp32dev/firmware.bin -umartykan:$BINTRAY_KEY https://api.bintray.com/content/airguard/firmware/esp32-main/1/firmware.bin?publish=1"

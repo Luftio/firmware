@@ -7,11 +7,6 @@
 
 namespace OTAUpdate
 {
-    void checkFWUpdates(void)
-    {
-        checkFWUpdates(FW_UPDATE_URL);
-    }
-
     void checkFWUpdates(const String &url)
     {
         WiFiClient client;

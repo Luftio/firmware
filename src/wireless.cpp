@@ -1,8 +1,8 @@
 #include "WiFi.h"
 #include "DNSServer.h"
 #include "HTTPClient.h"
-#include "HTTPUpdate.h"
 #include "PubSubClient.h"
+#include "ArduinoJson.h"
 
 #include "wireless.hpp"
 #include "sensors.hpp"
@@ -40,7 +40,6 @@ namespace Wireless
         connect();
 
         randomSeed(micros());
-        OTAUpdate::checkFWUpdates();
         Leds::setAnimation(Leds::OFF);
 
         mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -164,7 +163,8 @@ namespace Wireless
             mqttClient.subscribe("v1/devices/me/attributes");
             mqttClient.subscribe("v1/devices/me/attributes/response/+");
             mqttClient.subscribe("v1/devices/me/rpc/request/+");
-            String body = "{\"sharedKeys\":\"light\"}";
+
+            String body = "{\"sharedKeys\":\"light,brightness\"}";
             mqttClient.publish("v1/devices/me/attributes/request/1", body.c_str());
         }
         else
@@ -173,6 +173,29 @@ namespace Wireless
             Serial.println(mqttClient.state());
         }
         return mqttClient.connected();
+    }
+
+    void processAttrs(JsonObject doc)
+    {
+        if (doc.containsKey("light"))
+        {
+            if (doc["light"] == "standard")
+            {
+                Leds::setAnimation(Leds::STANDARD);
+            }
+            else if (doc["light"] == "off")
+            {
+                Leds::setAnimation(Leds::OFF);
+            }
+            else if (doc["light"] == "lamp")
+            {
+                Leds::setAnimation(Leds::LAMP);
+            }
+        }
+        if (doc.containsKey("brightness"))
+        {
+            Leds::setBrightness(min(255, max(0, doc["brightness"].as<int>())));
+        }
     }
 
     void mqttCallback(char *topic, byte *payload, unsigned int length)
@@ -186,58 +209,64 @@ namespace Wireless
         Serial.println(str);
         if (strcmp(topic, "v1/devices/me/attributes") == 0)
         {
-            if (strcmp(str, "{\"light\":\"standard\"}") == 0)
-            {
-                Leds::setAnimation(Leds::STANDARD);
-            }
-            else if (strcmp(str, "{\"light\":\"off\"}") == 0)
-            {
-                Leds::setAnimation(Leds::OFF);
-            }
-            else if (strcmp(str, "{\"light\":\"lamp\"}") == 0)
-            {
-                Leds::setAnimation(Leds::LAMP);
-            }
+            DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
+            DeserializationError err = deserializeJson(doc, str);
+            processAttrs(doc.as<JsonObject>());
         }
         else if (strcmp(topic, "v1/devices/me/attributes/response/1") == 0)
         {
-            if (strcmp(str, "{\"shared\":{\"light\":\"standard\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::STANDARD);
-            }
-            else if (strcmp(str, "{\"shared\":{\"light\":\"off\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::OFF);
-            }
-            else if (strcmp(str, "{\"shared\":{\"light\":\"lamp\"}}") == 0)
-            {
-                Leds::setAnimation(Leds::LAMP);
-            }
+            DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
+            DeserializationError err = deserializeJson(doc, str);
+            processAttrs(doc["shared"].as<JsonObject>());
         }
-        else if (strstr(str, "v1/devices/me/rpc/request/") != NULL)
+        else if (strstr(topic, "v1/devices/me/rpc/request/") != NULL)
         {
-            if (strcmp(str, "{\"method\":\"reboot\",\"params\":\"{}\"}"))
+            int id = 0;
+            sscanf(topic, "v1/devices/me/rpc/request/%d", &id);
+            Serial.println(id);
+            DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
+            DeserializationError err = deserializeJson(doc, str);
+            if (doc["method"] == "reboot")
             {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 ESP.restart();
+            }
+            else if (doc["method"] == "update")
+            {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
+                OTAUpdate::checkFWUpdates(doc["params"]["url"]);
+            }
+            else if (doc["method"] == "setbaseline")
+            {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
+                Sensors::writeBaseline(doc["params"]["baseline"].as<uint16_t>());
+            }
+            else
+            {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"Unknown command\"}");
             }
         }
     }
 
     void uploadData()
     {
-        String body = "{";
-        if (Sensors::isWarmedUp())
+        if (!Sensors::isWarmedUp())
         {
-            body += "\"co2\":";
-            body += Sensors::readCO2();
-            body += ",";
+            return;
         }
-        body += "\"hum\":";
+        String body = "{";
+        body += "\"co2\":";
+        body += Sensors::readCO2();
+        body += ",\"tvoc\":";
+        body += Sensors::readTVOC();
+        body += ",\"hum\":";
         body += Sensors::readHumidity();
         body += ",\"temp\":";
         body += Sensors::readTemperature();
         body += ",\"pres\":";
         body += Sensors::readPressure();
+        body += ",\"baseline\":";
+        body += Sensors::readBaseline();
         body += "}";
         Serial.println(body);
 

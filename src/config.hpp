@@ -1,7 +1,6 @@
 #define WIFI_ID "AIRGUARD_"
 
 #define FW_VERSION "101"
-#define FW_UPDATE_URL "http://dl.bintray.com/airguard/firmware/firmware.bin"
 
 #define MQTT_SERVER "demo.thingsboard.io"
 #define MQTT_PORT 1883
