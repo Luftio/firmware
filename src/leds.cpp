@@ -47,6 +47,7 @@ namespace Leds
                 }
                 vTaskDelay(min(1000 / abs(status - lastStatus), 50) / portTICK_PERIOD_MS);
             }
+            FastLED.showColor(CRGB(status, 255 - status, 0), brightness);
             lastStatus = status;
         }
         else if (animation == STARTUP || animation == SETUP)
@@ -67,14 +68,12 @@ namespace Leds
         else if (animation == LAMP)
         {
             FastLED.showColor(CRGB::SandyBrown, brightness);
-            lastStatus = 0;
         }
         else if (animation == OFF)
         {
             FastLED.clear(true);
             delay(3);
             FastLED.clear(true);
-            lastStatus = 0;
         }
 
         if (animation == STARTUP || animation == SETUP)
@@ -101,7 +100,6 @@ namespace Leds
 
     void setStatus(unsigned char newStatus)
     {
-        lastStatus = status;
         status = newStatus;
 
         if (animation == STANDARD)

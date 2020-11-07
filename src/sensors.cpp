@@ -49,12 +49,11 @@ namespace Sensors
         Serial.println(ccs.application_version(), HEX);
 
         // Default settings from datasheet
-        bme.setSampling(Adafruit_BME280::MODE_NORMAL,     // Operating mode
-                        Adafruit_BME280::SAMPLING_X16,    // Temp. oversampling
-                        Adafruit_BME280::SAMPLING_X16,    // Pressure oversampling
-                        Adafruit_BME280::SAMPLING_X16,    // Humidity oversampling
-                        Adafruit_BME280::FILTER_X16,      // Filtering
-                        Adafruit_BME280::STANDBY_MS_250); // Standby time
+        bme.setSampling(Adafruit_BME280::MODE_FORCED, // Operating mode
+                        Adafruit_BME280::SAMPLING_X1, // Temp. oversampling
+                        Adafruit_BME280::SAMPLING_X1, // Pressure oversampling
+                        Adafruit_BME280::SAMPLING_X1, // Humidity oversampling
+                        Adafruit_BME280::FILTER_OFF); // Filtering
         ccs.start(CCS811_MODE_10SEC);
 
         Serial.println("All sensors found succesfully.");
@@ -187,10 +186,11 @@ namespace Sensors
 
     void readBME()
     {
+        bme.takeForcedMeasurement();
         uint16_t new_hum = round(bme.readHumidity() * 10);
         uint16_t new_temp = round(bme.readTemperature() * 10);
         uint16_t new_pressure = round(bme.readPressure() / 10);
-        if (new_temp <= 0 || new_pressure < 5000)
+        if (new_temp <= 0 || new_pressure < 5000 || new_temp >= 500)
         {
             return;
         }
