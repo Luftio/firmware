@@ -48,6 +48,7 @@ namespace Wireless
 
     void provision()
     {
+        unsigned long idleTimer = millis();
         Leds::setAnimation(Leds::SETUP);
         Serial.println("Begining provisioning");
         WiFi.disconnect();
@@ -60,6 +61,19 @@ namespace Wireless
 
         for (;;)
         {
+            if (WiFi.softAPgetStationNum() != 0)
+            {
+                idleTimer = millis();
+            }
+            else if (millis() > 120000 && idleTimer < millis() - 120000)
+            {
+                String savedWifi = preferences.getString("wifi_name", "");
+                if (savedWifi.length() != 0)
+                {
+                    Serial.println("Timed out, trying to connect again");
+                    connecting = true;
+                }
+            }
             dnsServer->processNextRequest();
             Web::handleClient();
 
@@ -98,13 +112,24 @@ namespace Wireless
         Serial.println(savedWifi);
         WiFi.begin(savedWifi.c_str(), savedWifiPass.c_str());
 
+        int maxAttempts = 60;
+        int n = WiFi.scanNetworks();
+        for (int i = 0; i < n; i++)
+        {
+            if (WiFi.SSID(i) == savedWifi)
+            {
+                Serial.println("Network found on scan");
+                maxAttempts = 100;
+                break;
+            }
+        }
         int connectionAttempts = 0;
         while (WiFi.status() != WL_CONNECTED)
         {
             delay(500);
             Serial.print(".");
             connectionAttempts++;
-            if (connectionAttempts >= 60)
+            if (connectionAttempts >= maxAttempts)
             {
                 provision();
                 return;
@@ -121,6 +146,7 @@ namespace Wireless
         Serial.println(WiFi.localIP());
     }
 
+    bool lightSet = false;
     long lastUpload = 0;
     long lastReconnectAttempt = 0;
 
@@ -179,6 +205,7 @@ namespace Wireless
     {
         if (doc.containsKey("light"))
         {
+            lightSet = true;
             if (doc["light"] == "standard")
             {
                 Leds::setAnimation(Leds::STANDARD);
@@ -236,10 +263,17 @@ namespace Wireless
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 OTAUpdate::checkFWUpdates(doc["params"]["url"]);
             }
-            else if (doc["method"] == "setbaseline")
+#ifdef ENABLE_CCS
+            else if (doc["method"] == "ccs_baseline")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
-                Sensors::writeBaseline(doc["params"]["baseline"].as<uint16_t>());
+                Sensors::ccs_writeBaseline(doc["params"]["baseline"].as<uint16_t>());
+            }
+#endif
+            else if (doc["method"] == "mhz_calibrate")
+            {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
+                Sensors::mhz_calibrate();
             }
             else
             {
@@ -257,19 +291,56 @@ namespace Wireless
         String body = "{";
         body += "\"co2\":";
         body += Sensors::readCO2();
+#ifdef ENABLE_CCS
+        body += ",\"eco2\":";
+        body += Sensors::readECO2();
         body += ",\"tvoc\":";
         body += Sensors::readTVOC();
+        body += ",\"baseline\":";
+        body += Sensors::ccs_readBaseline();
+#endif
         body += ",\"hum\":";
         body += Sensors::readHumidity();
         body += ",\"temp\":";
         body += Sensors::readTemperature();
         body += ",\"pres\":";
         body += Sensors::readPressure();
-        body += ",\"baseline\":";
-        body += Sensors::readBaseline();
         body += "}";
         Serial.println(body);
 
         mqttClient.publish("v1/devices/me/telemetry", body.c_str());
+    }
+
+    void uploadLightAttributes(Leds::Animation animation, int brightness)
+    {
+        if (!lightSet)
+        {
+            return;
+        }
+        String mode;
+        if (animation == Leds::OFF)
+        {
+            mode = "off";
+        }
+        else if (animation == Leds::STANDARD)
+        {
+            mode = "standard";
+        }
+        else if (animation == Leds::LAMP)
+        {
+            mode = "lamp";
+        }
+        else
+        {
+            mode = "other";
+        }
+        String body = "{";
+        body += "\"light\":\"";
+        body += mode;
+        body += "\",\"brightness\":";
+        body += brightness;
+        body += "}";
+        Serial.println(body);
+        mqttClient.publish("v1/devices/me/attributes", body.c_str());
     }
 } // namespace Wireless

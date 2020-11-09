@@ -67,7 +67,7 @@ namespace Leds
         }
         else if (animation == LAMP)
         {
-            FastLED.showColor(CRGB::SandyBrown, brightness);
+            FastLED.showColor(CRGB::White, brightness);
         }
         else if (animation == OFF)
         {
@@ -88,12 +88,20 @@ namespace Leds
 
     void setAnimation(Animation newAnimation)
     {
+        if (newAnimation == animation)
+        {
+            return;
+        }
         animation = newAnimation;
         vTaskResume(TaskLedAnimate);
     }
 
     void setBrightness(unsigned char newBrightness)
     {
+        if (newBrightness == brightness)
+        {
+            return;
+        }
         brightness = newBrightness;
         vTaskResume(TaskLedAnimate);
     }

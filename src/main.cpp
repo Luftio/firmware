@@ -1,14 +1,9 @@
 #include <Arduino.h>
+
 #include "sensors.hpp"
 #include "leds.hpp"
-#include "buttons.hpp"
 #include "wireless.hpp"
-
-#define WARNING_TIME 60000
-#define CRITICAL_TIME 4000
-
-#define WARNING_VALUE 2000
-#define CRITICAL_VALUE 5000
+#include "input.hpp"
 
 void setup()
 {
@@ -17,31 +12,15 @@ void setup()
     Serial.begin(115200);
     Serial.println("Yay! Welcome to AirGuard debuging console.");
 
+    Input::begin();
     Leds::animation = Leds::STARTUP;
     Leds::begin();
-
     Sensors::begin();
     Wireless::begin();
 }
 
 void loop()
 {
-    Buttons::one.update();
-    if (Buttons::one.isJustReleased())
-    {
-        if (Leds::animation == Leds::STANDARD)
-        {
-            Leds::setAnimation(Leds::OFF);
-        }
-        else if (Leds::animation == Leds::OFF)
-        {
-            Leds::setAnimation(Leds::LAMP);
-        }
-        else if (Leds::animation == Leds::LAMP)
-        {
-            Leds::setAnimation(Leds::STANDARD);
-        }
-    }
-
+    Input::update();
     Wireless::loop();
 }

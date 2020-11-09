@@ -1,17 +1,24 @@
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <ccs811.h>
+#include <MHZ19.h>
 
 #include "sensors.hpp"
 #include "leds.hpp"
 #include "pinout.hpp"
+#include "config.hpp"
 
 namespace Sensors
 {
     TaskHandle_t TaskSensorsCalibrate;
 
+    HardwareSerial hwSerial1(1);
+
+#ifdef ENABLE_CCS
     static CCS811 ccs;
+#endif
     static Adafruit_BME280 bme;
+    static MHZ19 mhz(&hwSerial1);
 
     bool warmedUp = false;
 
@@ -31,6 +38,7 @@ namespace Sensors
             return;
         }
 
+#ifdef ENABLE_CCS
         // Initialize CCS811
         ccs.set_i2cdelay(50);
         if (!ccs.begin())
@@ -47,6 +55,8 @@ namespace Sensors
         Serial.println(ccs.bootloader_version(), HEX);
         Serial.print("CCS application version: ");
         Serial.println(ccs.application_version(), HEX);
+        ccs.start(CCS811_MODE_10SEC);
+#endif
 
         // Default settings from datasheet
         bme.setSampling(Adafruit_BME280::MODE_FORCED, // Operating mode
@@ -54,7 +64,9 @@ namespace Sensors
                         Adafruit_BME280::SAMPLING_X1, // Pressure oversampling
                         Adafruit_BME280::SAMPLING_X1, // Humidity oversampling
                         Adafruit_BME280::FILTER_OFF); // Filtering
-        ccs.start(CCS811_MODE_10SEC);
+
+        hwSerial1.begin(9600, SERIAL_8N1, MHZ_RX, MHZ_TX);
+        mhz.setRange(MHZ19_RANGE_5000);
 
         Serial.println("All sensors found succesfully.");
 
@@ -118,9 +130,13 @@ namespace Sensors
         *exponential_average = 0.7 * current_value + 0.3 * (*exponential_average);
     }
 
-    uint16_t hum, temp, pressure, eco2, etvoc;
+    uint16_t hum, temp, pressure, co2, eco2, etvoc;
 
     uint16_t readCO2()
+    {
+        return co2;
+    }
+    uint16_t readECO2()
     {
         return eco2;
     }
@@ -145,7 +161,8 @@ namespace Sensors
         return (float)hum / 10;
     }
 
-    uint16_t readBaseline()
+#ifdef ENABLE_CCS
+    uint16_t ccs_readBaseline()
     {
         uint16_t new_baseline;
         if (ccs.get_baseline(&new_baseline))
@@ -155,7 +172,7 @@ namespace Sensors
         return 0;
     }
 
-    bool writeBaseline(uint16_t baseline)
+    bool ccs_writeBaseline(uint16_t baseline)
     {
         return ccs.set_baseline(baseline);
     }
@@ -183,6 +200,33 @@ namespace Sensors
             Serial.println(ccs.errstat_str(errstat));
         }
     }
+#endif
+
+    void mhz_calibrate()
+    {
+        mhz.calibrateZero();
+    }
+
+    void readMHZ()
+    {
+
+        MHZ19_RESULT response = mhz.retrieveData();
+        if (response == MHZ19_RESULT_OK)
+        {
+            Serial.print(F("MHZ - CO2: "));
+            co2 = mhz.getCO2();
+            Serial.println(co2);
+            Serial.print(F("Temperature: "));
+            Serial.println(mhz.getTemperature());
+            Serial.print(F("Accuracy: "));
+            Serial.println(mhz.getAccuracy());
+        }
+        else
+        {
+            Serial.print(F("MHZ Error, code: "));
+            Serial.println(response);
+        }
+    }
 
     void readBME()
     {
@@ -198,6 +242,7 @@ namespace Sensors
         ema_filter(new_temp, &temp);
         ema_filter(new_pressure, &pressure);
 
+#ifdef ENABLE_CCS
         double avg_temp = temp;
         double fract = modf(avg_temp, &avg_temp);
         uint16_t tempHIGH = (((uint16_t)avg_temp + 25) << 9);
@@ -205,18 +250,22 @@ namespace Sensors
         uint16_t tempCONVERT = (tempHIGH | tempLOW);
         uint16_t humCONVERT = hum << 1 | 0x00;
         ccs.set_envdata(tempCONVERT, humCONVERT);
+#endif
     }
 
     void TaskSensorsCalibrateRun(void *parameter)
     {
         for (;;)
         {
+            readMHZ();
             readBME();
+#ifdef ENABLE_CCS
             readCCS();
+#endif
 
             // Print values
-            Serial.print("Sensors CO2 = ");
-            Serial.print(readCO2());
+            Serial.print("Sensors ECO2 = ");
+            Serial.print(readECO2());
             Serial.print(" TVOC = ");
             Serial.print(readTVOC());
             Serial.print(" hum = ");
@@ -227,7 +276,7 @@ namespace Sensors
             Serial.println(readTemperature());
 
             // Show status
-            Leds::setStatus(min((eco2 - 400) / 16, 255));
+            Leds::setStatus(min((co2 - 400) / 16, 255));
             vTaskDelay(5000 / portTICK_PERIOD_MS);
         }
     }

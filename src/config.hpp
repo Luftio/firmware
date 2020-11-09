@@ -7,3 +7,5 @@
 #define MQTT_VERSION_3_1
 
 const uint8_t apiEncrypt[6] = {***REMOVED***};
+
+//#define ENABLE_CCS 1

@@ -5,20 +5,25 @@ namespace Leds
     // 0 = perfect
     // 255 = worst air ever
     extern unsigned char status;
+    extern unsigned char brightness;
 
     enum Animation : unsigned char
     {
-        OFF, STARTUP, SETUP, STANDARD, LAMP
+        OFF,
+        STARTUP,
+        SETUP,
+        STANDARD,
+        LAMP
     };
 
     extern Animation animation;
 
     void begin();
-    
+
     void setAnimation(Animation newAnimation);
     void setStatus(unsigned char status);
     void setBrightness(unsigned char brightness);
 
     void TaskLedAnimateRun(void *parameter);
     void update();
-}
+} // namespace Leds
