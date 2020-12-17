@@ -10,6 +10,8 @@
 
 namespace Sensors
 {
+    void readMHZ();
+
     TaskHandle_t TaskSensorsCalibrate;
 
     HardwareSerial hwSerial1(1);
@@ -27,16 +29,6 @@ namespace Sensors
         // Initialize I2C
         Wire.begin(SDA, SCL);
         delay(100);
-
-        // Initialize BME280
-        if (!bme.begin(0x76))
-        {
-            Serial.println("BME280 sensor not found!");
-            debugI2C();
-            delay(5000);
-            begin();
-            return;
-        }
 
 #ifdef ENABLE_CCS
         // Initialize CCS811
@@ -57,6 +49,20 @@ namespace Sensors
         Serial.println(ccs.application_version(), HEX);
         ccs.start(CCS811_MODE_10SEC);
 #endif
+        hwSerial1.begin(9600, SERIAL_8N1, MHZ_RX, MHZ_TX);
+        mhz.setRange(MHZ19_RANGE_5000);
+        readMHZ();
+        readMHZ();
+
+        // Initialize BME280
+        if (!bme.begin(0x76))
+        {
+            Serial.println("BME280 sensor not found!");
+            debugI2C();
+            delay(5000);
+            begin();
+            return;
+        }
 
         // Default settings from datasheet
         bme.setSampling(Adafruit_BME280::MODE_FORCED, // Operating mode
@@ -64,9 +70,6 @@ namespace Sensors
                         Adafruit_BME280::SAMPLING_X1, // Pressure oversampling
                         Adafruit_BME280::SAMPLING_X1, // Humidity oversampling
                         Adafruit_BME280::FILTER_OFF); // Filtering
-
-        hwSerial1.begin(9600, SERIAL_8N1, MHZ_RX, MHZ_TX);
-        mhz.setRange(MHZ19_RANGE_5000);
 
         Serial.println("All sensors found succesfully.");
 
@@ -148,7 +151,16 @@ namespace Sensors
 
     float readTemperature()
     {
-        return (float)temp / 10;
+        /*Serial.print("Raw temperature: ");
+        Serial.print(temp / 10);
+        Serial.print(", adjusting by index ");
+        float readjIndex = 0.78;
+        if (Leds::animation != Leds::OFF)
+        {
+            readjIndex -= ((float)Leds::brightness / (float)255) * 0.02;
+        }
+        Serial.println(readjIndex);*/
+        return ((float)temp / 10) * 1;
     }
 
     uint32_t readPressure()
@@ -213,12 +225,12 @@ namespace Sensors
         MHZ19_RESULT response = mhz.retrieveData();
         if (response == MHZ19_RESULT_OK)
         {
-            Serial.print(F("MHZ - CO2: "));
+            Serial.print(F("MHZ CO2: "));
             co2 = mhz.getCO2();
             Serial.println(co2);
-            Serial.print(F("Temperature: "));
+            Serial.print(F("MHZ Temperature: "));
             Serial.println(mhz.getTemperature());
-            Serial.print(F("Accuracy: "));
+            Serial.print(F("MHZ Accuracy: "));
             Serial.println(mhz.getAccuracy());
         }
         else
@@ -233,6 +245,8 @@ namespace Sensors
         bme.takeForcedMeasurement();
         uint16_t new_hum = round(bme.readHumidity() * 10);
         uint16_t new_temp = round(bme.readTemperature() * 10);
+        Serial.print("BME raw temp: ");
+        Serial.println(new_temp);
         uint16_t new_pressure = round(bme.readPressure() / 10);
         if (new_temp <= 0 || new_pressure < 5000 || new_temp >= 500)
         {
@@ -276,7 +290,7 @@ namespace Sensors
             Serial.println(readTemperature());
 
             // Show status
-            Leds::setStatus(min((co2 - 400) / 16, 255));
+            Leds::setStatus(max(0, min((co2 - 500) / 16, 255)));
             vTaskDelay(5000 / portTICK_PERIOD_MS);
         }
     }

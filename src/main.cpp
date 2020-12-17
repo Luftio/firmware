@@ -10,7 +10,7 @@ void setup()
     delay(1000);
 
     Serial.begin(115200);
-    Serial.println("Yay! Welcome to AirGuard debuging console.");
+    Serial.println("Yay! Welcome to Luftio debuging console.");
 
     Input::begin();
     Leds::animation = Leds::STARTUP;

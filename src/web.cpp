@@ -8,7 +8,7 @@ namespace Web
     PROGMEM const char *htmlConnect = R"A(
 <html>
 <head>
-<title>Air-Guard</title>
+<title>Luftio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
@@ -96,7 +96,7 @@ input {
 </head>
 <body>
 <div id="container">
-<h1>Welcome to Air-Guard</h1>
+<h1>Welcome to Luftio</h1>
 <h2>Select a network</h2>
 <div id="network-list">
 </div>
@@ -149,7 +149,6 @@ input {
         }
     }
     fetch("/api/scan").then(res => res.json()).then(data => {
-        var data = [{ssid:"martykanovi2", secured: true}];
         document.querySelector("#network-list").innerHTML = data.map(it => `<button class="connect" data-ssid="${it.ssid}" data-secured="${it.secured}">${it.ssid}</button>`).join("");
         document.querySelectorAll(".connect").forEach(el => (el.onclick = () => connect(el)));
     }).catch(error => window.alert("A network error occurred"))

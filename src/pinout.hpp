@@ -1,8 +1,8 @@
 #define LED_PIN 14
 #define LED_COUNT 16
 
-#define MHZ_RX 17 // blue
-#define MHZ_TX 16 // green
+#define MHZ_RX 16 // green RX2
+#define MHZ_TX 17 // blue TX2
 
 #define ONBOARDLED_PIN 2
 #define BUTTON_PIN 27

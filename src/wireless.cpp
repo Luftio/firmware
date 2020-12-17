@@ -26,7 +26,7 @@ namespace Wireless
 
     void begin()
     {
-        preferences.begin("airguard-wifi", false);
+        preferences.begin("luftio-wifi", false);
         uint8_t mac[6];
 
         esp_efuse_mac_get_default(mac);

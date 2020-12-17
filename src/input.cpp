@@ -44,6 +44,7 @@ namespace Input
     {
         if (eventType == AceButton::kEventReleased)
         {
+            Serial.println("Button released");
             if (Leds::animation == Leds::STANDARD)
             {
                 Leds::setAnimation(Leds::OFF);
@@ -57,6 +58,10 @@ namespace Input
                 Leds::setAnimation(Leds::STANDARD);
             }
             Wireless::uploadLightAttributes(Leds::animation, Leds::brightness);
+        }
+        else if (eventType == AceButton::kEventPressed)
+        {
+            Serial.println("Button pressed");
         }
     }
 } // namespace Input
