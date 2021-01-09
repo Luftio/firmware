@@ -112,9 +112,11 @@ input {
 
 <script>
     var selectedNetwork = "";
+    var connecting = false;
     function finishConnection(ssid, password) {
         closePrompt();
         fetch("/api/connect?ssid=" + ssid + "&pass=" + password).then(data => {
+            connecting = true;
             document.querySelector("h2").innerHTML = "Connecting...<br><br><small>When the light stops flashing, it's finished.</small>";
             document.querySelector("#network-list").innerHTML = "";
         }).catch(error => window.alert("A network error occurred"));
@@ -148,10 +150,25 @@ input {
             finishConnection(el.dataset.ssid, "");
         }
     }
-    fetch("/api/scan").then(res => res.json()).then(data => {
-        document.querySelector("#network-list").innerHTML = data.map(it => `<button class="connect" data-ssid="${it.ssid}" data-secured="${it.secured}">${it.ssid}</button>`).join("");
-        document.querySelectorAll(".connect").forEach(el => (el.onclick = () => connect(el)));
-    }).catch(error => window.alert("A network error occurred"))
+    var foundNetworks = [];
+    function scan() {
+        fetch("/api/scan").then(res => res.json()).then(data => {
+            for(var network of data) {
+                if(!foundNetworks.find(it => it.ssid == network.ssid)) {
+                    foundNetworks.push(network);
+                }
+            }
+            document.querySelector("#network-list").innerHTML = foundNetworks.map(it => `<button class="connect" data-ssid="${it.ssid}" data-secured="${it.secured}">${it.ssid}</button>`).join("");
+            document.querySelectorAll(".connect").forEach(el => (el.onclick = () => connect(el)));
+            setTimeout(() => scan(), 10000);
+        }).catch(error => { 
+            console.log(error);
+            if(!connecting) {
+                window.alert("A network error occurred"); 
+            }
+        });
+    }
+    scan();
 </script>
 </body>
 </html>
@@ -190,7 +207,8 @@ input {
     {
         Serial.println("Route scan");
         String body = "[";
-        int n = WiFi.scanNetworks();
+        int n = WiFi.scanComplete();
+        Serial.println(n);
         for (int i = 0; i < n; i++)
         {
             body += "{\"ssid\":\"";
@@ -198,8 +216,15 @@ input {
             body += "\",\"secured\":\"";
             body += (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "false" : "true";
             body += "\"}";
+            if (i != n - 1)
+                body += ",";
         }
         body += "]";
+        Serial.println(body);
+        if (n != -1)
+        {
+            WiFi.scanNetworks(true, false, false, 5000);
+        }
         server->send(200, "application/json", body);
     }
 

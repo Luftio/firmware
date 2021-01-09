@@ -52,7 +52,9 @@ namespace Wireless
         Leds::setAnimation(Leds::SETUP);
         Serial.println("Begining provisioning");
         WiFi.disconnect();
+        WiFi.mode(WIFI_AP_STA);
         WiFi.softAP(apSSID, NULL, 1, 0, 4);
+        WiFi.scanNetworks(true, false, false, 1000);
 
         dnsServer.reset(new DNSServer());
         dnsServer->setErrorReplyCode(DNSReplyCode::NoError);
@@ -83,6 +85,7 @@ namespace Wireless
                 dnsServer->stop();
                 dnsServer.reset();
                 Web::close();
+                WiFi.softAPdisconnect();
 
                 connect();
 
@@ -263,6 +266,11 @@ namespace Wireless
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 OTAUpdate::checkFWUpdates(doc["params"]["url"]);
             }
+            else if (doc["method"] == "forgetwifi")
+            {
+                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
+                preferences.putString("wifi_name", "");
+            }
 #ifdef ENABLE_CCS
             else if (doc["method"] == "ccs_baseline")
             {
@@ -339,6 +347,8 @@ namespace Wireless
         body += mode;
         body += "\",\"brightness\":";
         body += brightness;
+        body += "\",\"version\":";
+        body += FW_VERSION;
         body += "}";
         Serial.println(body);
         mqttClient.publish("v1/devices/me/attributes", body.c_str());

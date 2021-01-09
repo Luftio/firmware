@@ -1,6 +1,6 @@
 #define WIFI_ID "LUFTIO_"
 
-#define FW_VERSION "101"
+#define FW_VERSION "103"
 
 #define MQTT_SERVER "app.luftio.com"
 #define MQTT_PORT 1883
