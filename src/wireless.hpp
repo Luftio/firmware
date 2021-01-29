@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Preferences.h"
-#include "leds.hpp"
+#include "esp_wifi.h"
 
 namespace Wireless
 {
@@ -14,5 +14,4 @@ namespace Wireless
     bool mqttReconnect();
     void mqttCallback(char *topic, byte *payload, unsigned int length);
     void uploadData();
-    void uploadLightAttributes(Leds::Animation animation, int brightness);
 } // namespace Wireless

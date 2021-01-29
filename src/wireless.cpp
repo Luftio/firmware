@@ -86,9 +86,7 @@ namespace Wireless
                 dnsServer.reset();
                 Web::close();
                 WiFi.softAPdisconnect();
-
-                connect();
-
+                ESP.restart();
                 break;
             }
         }
@@ -104,6 +102,12 @@ namespace Wireless
     void connect()
     {
         Leds::setAnimation(Leds::STARTUP);
+        if (preferences.getBytesLength("wifi_name") < 0)
+        {
+            // First setup
+            preferences.putString("wifi_name", "");
+            preferences.putString("wifi_pass", "");
+        }
         String savedWifi = preferences.getString("wifi_name", "");
         String savedWifiPass = preferences.getString("wifi_pass", "");
         if (savedWifi.length() == 0)
@@ -129,8 +133,7 @@ namespace Wireless
         int connectionAttempts = 0;
         while (WiFi.status() != WL_CONNECTED)
         {
-            delay(500);
-            Serial.print(".");
+            vTaskDelay(500 / portTICK_PERIOD_MS);
             connectionAttempts++;
             if (connectionAttempts >= maxAttempts)
             {
@@ -181,6 +184,10 @@ namespace Wireless
             {
                 lastUpload = now;
                 uploadData();
+            }
+            else
+            {
+                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
         }
     }
@@ -241,13 +248,27 @@ namespace Wireless
         {
             DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
             DeserializationError err = deserializeJson(doc, str);
+            if (err != DeserializationError::Ok)
+            {
+                Serial.print("Deserialization error ");
+                Serial.println(err.c_str());
+                return;
+            }
             processAttrs(doc.as<JsonObject>());
+            doc.clear();
         }
         else if (strcmp(topic, "v1/devices/me/attributes/response/1") == 0)
         {
             DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
             DeserializationError err = deserializeJson(doc, str);
+            if (err != DeserializationError::Ok)
+            {
+                Serial.print("Deserialization error ");
+                Serial.println(err.c_str());
+                return;
+            }
             processAttrs(doc["shared"].as<JsonObject>());
+            doc.clear();
         }
         else if (strstr(topic, "v1/devices/me/rpc/request/") != NULL)
         {
@@ -256,6 +277,12 @@ namespace Wireless
             Serial.println(id);
             DynamicJsonDocument doc(JSON_OBJECT_SIZE(10));
             DeserializationError err = deserializeJson(doc, str);
+            if (err != DeserializationError::Ok)
+            {
+                Serial.print("Deserialization error ");
+                Serial.println(err.c_str());
+                return;
+            }
             if (doc["method"] == "reboot")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
@@ -271,13 +298,13 @@ namespace Wireless
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 preferences.putString("wifi_name", "");
             }
-#ifdef ENABLE_CCS
             else if (doc["method"] == "ccs_baseline")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
+#ifdef ENABLE_CCS
                 Sensors::ccs_writeBaseline(doc["params"]["baseline"].as<uint16_t>());
-            }
 #endif
+            }
             else if (doc["method"] == "mhz_calibrate")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
@@ -287,11 +314,16 @@ namespace Wireless
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"Unknown command\"}");
             }
+            doc.clear();
         }
     }
 
     void uploadData()
     {
+        Serial.print("Free heap: ");
+        Serial.println(ESP.getFreeHeap());
+        Serial.print("Free PSRAM: ");
+        Serial.println(ESP.getFreePsram());
         if (!Sensors::isWarmedUp())
         {
             return;
@@ -317,40 +349,5 @@ namespace Wireless
         Serial.println(body);
 
         mqttClient.publish("v1/devices/me/telemetry", body.c_str());
-    }
-
-    void uploadLightAttributes(Leds::Animation animation, int brightness)
-    {
-        if (!lightSet)
-        {
-            return;
-        }
-        String mode;
-        if (animation == Leds::OFF)
-        {
-            mode = "off";
-        }
-        else if (animation == Leds::STANDARD)
-        {
-            mode = "standard";
-        }
-        else if (animation == Leds::LAMP)
-        {
-            mode = "lamp";
-        }
-        else
-        {
-            mode = "other";
-        }
-        String body = "{";
-        body += "\"light\":\"";
-        body += mode;
-        body += "\",\"brightness\":";
-        body += brightness;
-        body += "\",\"version\":";
-        body += FW_VERSION;
-        body += "}";
-        Serial.println(body);
-        mqttClient.publish("v1/devices/me/attributes", body.c_str());
     }
 } // namespace Wireless

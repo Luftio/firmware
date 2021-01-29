@@ -130,7 +130,7 @@ namespace Sensors
             *exponential_average = current_value;
             return;
         }
-        *exponential_average = 0.7 * current_value + 0.3 * (*exponential_average);
+        *exponential_average = 0.6 * current_value + 0.4 * (*exponential_average);
     }
 
     uint16_t hum, temp, pressure, co2, eco2, etvoc;
@@ -243,13 +243,23 @@ namespace Sensors
     void readBME()
     {
         bme.takeForcedMeasurement();
-        uint16_t new_hum = round(bme.readHumidity() * 10);
         uint16_t new_temp = round(bme.readTemperature() * 10);
         Serial.print("BME raw temp: ");
-        Serial.println(new_temp);
+        Serial.print(new_temp);
+        uint16_t new_hum = round(bme.readHumidity() * 10);
+        Serial.print(" raw hum: ");
+        Serial.print(new_hum);
         uint16_t new_pressure = round(bme.readPressure() / 10);
-        if (new_temp <= 0 || new_pressure < 5000 || new_temp >= 500)
+        Serial.print(" raw pres: ");
+        Serial.println(new_pressure);
+        if (new_temp <= 0 || new_temp >= 500 || new_hum < 50 || new_hum > 950 || new_pressure < 5000 || new_pressure > 20000)
         {
+            Serial.println("Discarding based on extreme");
+            return;
+        }
+        if ((temp != 0 && abs(temp - new_temp) > 100) || (hum != 0 && abs(hum - new_hum) > 200) || (pressure != 0 && abs(pressure - new_pressure) > 500))
+        {
+            Serial.println("Discarding based on difference");
             return;
         }
         ema_filter(new_hum, &hum);
@@ -291,7 +301,7 @@ namespace Sensors
 
             // Show status
             Leds::setStatus(max(0, min((co2 - 500) / 16, 255)));
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
+            vTaskDelay(27000 / portTICK_PERIOD_MS);
         }
     }
 } // namespace Sensors

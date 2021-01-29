@@ -99,15 +99,15 @@ namespace Leds
     void setBrightness(unsigned char newBrightness)
     {
         if (newBrightness == brightness)
-        {
             return;
-        }
         brightness = newBrightness;
         vTaskResume(TaskLedAnimate);
     }
 
     void setStatus(unsigned char newStatus)
     {
+        if (status == newStatus)
+            return;
         status = newStatus;
 
         if (animation == STANDARD)

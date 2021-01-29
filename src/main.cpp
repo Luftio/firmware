@@ -3,7 +3,6 @@
 #include "sensors.hpp"
 #include "leds.hpp"
 #include "wireless.hpp"
-#include "input.hpp"
 
 void setup()
 {
@@ -12,7 +11,7 @@ void setup()
     Serial.begin(115200);
     Serial.println("Yay! Welcome to Luftio debuging console.");
 
-    Input::begin();
+    // Init
     Leds::animation = Leds::STARTUP;
     Leds::begin();
     Sensors::begin();
@@ -21,6 +20,5 @@ void setup()
 
 void loop()
 {
-    Input::update();
     Wireless::loop();
 }
