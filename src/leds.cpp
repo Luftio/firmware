@@ -1,3 +1,4 @@
+#define FASTLED_ESP32_I2S 1
 #include "FastLED.h"
 
 #include "leds.hpp"
@@ -17,7 +18,6 @@ namespace Leds
     void begin()
     {
         FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(UncorrectedColor);
-        FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
 
         FastLED.setBrightness(255);
 
@@ -67,7 +67,7 @@ namespace Leds
         }
         else if (animation == LAMP)
         {
-            FastLED.showColor(CRGB::White, brightness);
+            FastLED.showColor(CRGB::Wheat, brightness);
         }
         else if (animation == OFF)
         {
