@@ -67,7 +67,7 @@ namespace Leds
         }
         else if (animation == LAMP)
         {
-            FastLED.showColor(CRGB::Wheat, brightness);
+            FastLED.showColor(CRGB::Chocolate, brightness);
         }
         else if (animation == OFF)
         {

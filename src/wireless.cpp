@@ -202,6 +202,11 @@ namespace Wireless
 
             String body = "{\"sharedKeys\":\"light,brightness\"}";
             mqttClient.publish("v1/devices/me/attributes/request/1", body.c_str());
+
+            body = "{\"fw_version\":\"";
+            body += FW_VERSION;
+            body += "\"}";
+            mqttClient.publish("v1/devices/me/attributes", body.c_str());
         }
         else
         {
