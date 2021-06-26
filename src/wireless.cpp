@@ -303,17 +303,10 @@ namespace Wireless
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 preferences.putString("wifi_name", "");
             }
-            else if (doc["method"] == "ccs_baseline")
-            {
-                mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
-#ifdef ENABLE_CCS
-                Sensors::ccs_writeBaseline(doc["params"]["baseline"].as<uint16_t>());
-#endif
-            }
             else if (doc["method"] == "mhz_calibrate")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
-                Sensors::mhz_calibrate();
+                Sensors::mhzCalibrate();
             }
             else
             {
@@ -326,33 +319,16 @@ namespace Wireless
     void uploadData()
     {
         Serial.print("Free heap: ");
-        Serial.println(ESP.getFreeHeap());
-        Serial.print("Free PSRAM: ");
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(", PSRAM: ");
         Serial.println(ESP.getFreePsram());
         if (!Sensors::isWarmedUp())
         {
             return;
         }
-        String body = "{";
-        body += "\"co2\":";
-        body += Sensors::readCO2();
-#ifdef ENABLE_CCS
-        body += ",\"eco2\":";
-        body += Sensors::readECO2();
-        body += ",\"tvoc\":";
-        body += Sensors::readTVOC();
-        body += ",\"baseline\":";
-        body += Sensors::ccs_readBaseline();
-#endif
-        body += ",\"hum\":";
-        body += Sensors::readHumidity();
-        body += ",\"temp\":";
-        body += Sensors::readTemperature();
-        body += ",\"pres\":";
-        body += Sensors::readPressure();
-        body += "}";
-        Serial.println(body);
 
+        String body = Sensors::getValuesJSON();
+        Serial.println(body);
         mqttClient.publish("v1/devices/me/telemetry", body.c_str());
     }
 } // namespace Wireless
