@@ -1,3 +1,4 @@
+#ifdef ENABLE_MHZ
 #pragma once
 #include <MHZ19.h>
 #include "../sensors.hpp"
@@ -25,8 +26,7 @@ namespace Sensors
         }
         else
         {
-            Serial.print(F("MHZ Error, code: "));
-            Serial.println(response);
+            Wireless::log("MHZ Error, code: " + String(response));
         }
     }
 
@@ -38,8 +38,9 @@ namespace Sensors
         readMHZ();
     }
 
-    void mhzCalibrate()
+    void calibrateCO2()
     {
         mhz.calibrateZero();
     }
 }
+#endif

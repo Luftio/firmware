@@ -7,10 +7,9 @@ namespace Sensors
     void TaskSensorsCalibrateRun(void *parameter);
 
     String getValuesJSON();
-    extern uint16_t hum, temp, pressure, co2, eco2, etvoc, co2_accuracy, etvoc_accuracy;
+    extern uint16_t hum, temp, pressure, co2, eco2, etvoc, co2_accuracy, etvoc_accuracy, iaq, siaq, siaq_accuracy;
 
-    // Specific features
-    void mhzCalibrate();
+    void calibrateCO2();
 
     // Utilities
     void debugI2C();

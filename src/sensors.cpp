@@ -9,12 +9,13 @@
 #include "sensors/ccs.hpp"
 #include "sensors/bme280.hpp"
 #include "sensors/bme680.hpp"
+#include "sensors/scd4x.hpp"
 
 namespace Sensors
 {
     TaskHandle_t TaskSensorsCalibrate;
 
-    uint16_t hum, temp, pressure, co2, eco2, etvoc, co2_accuracy, etvoc_accuracy;
+    uint16_t hum, temp, pressure, co2, eco2, etvoc, co2_accuracy, etvoc_accuracy, iaq, siaq, siaq_accuracy;
     bool warmedUp = false;
 
     void begin()
@@ -23,7 +24,12 @@ namespace Sensors
         Wire.begin(SDA, SCL);
         delay(100);
 
+#ifdef ENABLE_MHZ
         initMHZ();
+#endif
+#ifdef ENABLE_SCD4X
+        initSCD4X();
+#endif
 #ifdef ENABLE_CCS
         initCCS();
 #endif
@@ -61,15 +67,6 @@ namespace Sensors
 
     float readTemperature()
     {
-        /*Serial.print("Raw temperature: ");
-        Serial.print(temp / 10);
-        Serial.print(", adjusting by index ");
-        float readjIndex = 0.78;
-        if (Leds::animation != Leds::OFF)
-        {
-            readjIndex -= ((float)Leds::brightness / (float)255) * 0.02;
-        }
-        Serial.println(readjIndex);*/
         return ((float)temp / 10) * 1;
     }
 
@@ -87,12 +84,24 @@ namespace Sensors
         body += ",\"pres\":";
         body += (pressure * 10);
 #ifdef ENABLE_BME680
+        body += ",\"iaq\":";
+        body += iaq;
+        body += ",\"siaq\":";
+        body += siaq;
+        body += ",\"siaq_accuracy\":";
+        body += siaq_accuracy;
         body += ",\"eco2\":";
         body += eco2;
         body += ",\"tvoc\":";
         body += ((float)etvoc / 100);
         body += ",\"tvoc_accuracy\":";
         body += etvoc_accuracy;
+#endif
+#ifdef ENABLE_SCD4X
+        body += ",\"aux_temp\":";
+        body += aux_temp;
+        body += ",\"aux_hum\":";
+        body += aux_hum;
 #endif
 #ifdef ENABLE_CCS
         body += ",\"eco2\":";
@@ -108,7 +117,12 @@ namespace Sensors
     {
         for (;;)
         {
+#ifdef ENABLE_MHZ
             readMHZ();
+#endif
+#ifdef ENABLE_SCD4X
+            readSCD4X();
+#endif
 #ifdef ENABLE_BME280
             readBME280();
 #endif
@@ -121,7 +135,7 @@ namespace Sensors
 
             // Show status
             Leds::setStatus(max(0, min((co2 - 500) / 11, 255)));
-            vTaskDelay(3000 / portTICK_PERIOD_MS);
+            vTaskDelay(20000 / portTICK_PERIOD_MS);
         }
     }
 

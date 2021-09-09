@@ -4,22 +4,26 @@
 
 #include "otaupdate.hpp"
 #include "config.hpp"
+#include "wireless.hpp"
 
 namespace OTAUpdate
 {
     void checkFWUpdates(const String &url)
     {
+        Wireless::log("Installing update " + url);
+
         WiFiClient client;
         t_httpUpdate_return ret = httpUpdate.update(client, url, FW_VERSION);
         if (ret == HTTP_UPDATE_FAILED)
         {
             int errorCode = httpUpdate.getLastError();
+            Wireless::log("Update HTTP connection failed " + httpUpdate.getLastErrorString());
             Serial.printf("HTTP_UPDATE_FAILED Error (%d): %s\n", errorCode, httpUpdate.getLastErrorString().c_str());
             // Check for redirect
             HTTPClient httpClient;
             if (!httpClient.begin(url))
             {
-                Serial.println("HTTP connection failed");
+                Wireless::log("Update HTTP connection failed");
                 return;
             }
             try
@@ -30,12 +34,12 @@ namespace OTAUpdate
                 int newResponseCode = httpClient.GET();
                 if (newResponseCode != 302 && newResponseCode != 301)
                 {
-                    Serial.println("HTTP response code " + newResponseCode);
+                    Wireless::log("Update HTTP response code " + newResponseCode);
                 }
                 else
                 {
                     String newUrl = httpClient.header("Location");
-                    Serial.println("New URL is " + newUrl);
+                    Wireless::log("New URL is " + newUrl);
                     if (newUrl != "")
                     {
                         checkFWUpdates(newUrl);
@@ -44,16 +48,16 @@ namespace OTAUpdate
             }
             catch (...)
             {
-                Serial.println("Error occured while checking update URL");
+                Wireless::log("Error occured while checking update URL");
             }
         }
         else if (ret == HTTP_UPDATE_NO_UPDATES)
         {
-            Serial.println("HTTP_UPDATE_NO_UPDATES");
+            Wireless::log("HTTP no updates");
         }
         else if (ret == HTTP_UPDATE_OK)
         {
-            Serial.println("HTTP_UPDATE_OK");
+            Wireless::log("HTTP update OK");
         }
     }
 } // namespace OTAUpdate

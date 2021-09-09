@@ -3,6 +3,7 @@
 #include "HTTPClient.h"
 #include "PubSubClient.h"
 #include "ArduinoJson.h"
+#include "rom/rtc.h"
 
 #include "wireless.hpp"
 #include "sensors.hpp"
@@ -207,6 +208,7 @@ namespace Wireless
             body += FW_VERSION;
             body += "\"}";
             mqttClient.publish("v1/devices/me/attributes", body.c_str());
+            log("MQTT reconnected, uptime " + String((long)esp_timer_get_time() / 1000000, 10) + "s, reason " + rtc_get_reset_reason(0) + " v" + FW_VERSION);
         }
         else
         {
@@ -303,10 +305,10 @@ namespace Wireless
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
                 preferences.putString("wifi_name", "");
             }
-            else if (doc["method"] == "mhz_calibrate")
+            else if (doc["method"] == "co2_calibrate")
             {
                 mqttClient.publish((String("v1/devices/me/rpc/response/") + id).c_str(), "{\"status\":\"OK\"}");
-                Sensors::mhzCalibrate();
+                Sensors::calibrateCO2();
             }
             else
             {
@@ -323,12 +325,17 @@ namespace Wireless
         Serial.print(", PSRAM: ");
         Serial.println(ESP.getFreePsram());
         if (!Sensors::isWarmedUp())
-        {
             return;
-        }
 
         String body = Sensors::getValuesJSON();
         Serial.println(body);
+        mqttClient.publish("v1/devices/me/telemetry", body.c_str());
+    }
+
+    void log(String data)
+    {
+        Serial.println(data);
+        String body = "{\"log\":\"" + data + "\"}";
         mqttClient.publish("v1/devices/me/telemetry", body.c_str());
     }
 } // namespace Wireless
