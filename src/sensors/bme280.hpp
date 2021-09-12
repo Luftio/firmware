@@ -3,6 +3,7 @@
 
 #include <Adafruit_BME280.h>
 #include "../sensors.hpp"
+#include "../wireless.hpp"
 
 namespace Sensors
 {
@@ -12,10 +13,8 @@ namespace Sensors
     {
         if (!bme.begin(0x76))
         {
-            Serial.println("BME280 sensor not found!");
+            Wireless::log("BME280 sensor not found!");
             debugI2C();
-            delay(5000);
-            begin();
             return;
         }
 

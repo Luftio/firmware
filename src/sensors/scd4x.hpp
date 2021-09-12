@@ -95,10 +95,10 @@ namespace Sensors
             Serial.println(errorMessage);
         }
         Wireless::log("SCD4X: sensorStatus 0x" + String((unsigned int)sensorStatus, 16));
-        scd4x.setTemperatureOffset(9.0);
+        scd4x.setTemperatureOffset(TEMP_OFFSET);
 
         // Start Measurement
-        error = scd4x.startPeriodicMeasurement();
+        error = scd4x.startLowPowerPeriodicMeasurement(); //startPeriodicMeasurement();
         if (error)
         {
             Serial.print("SCD4X: Error trying to execute startPeriodicMeasurement(): ");

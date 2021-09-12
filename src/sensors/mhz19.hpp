@@ -2,6 +2,7 @@
 #pragma once
 #include <MHZ19.h>
 #include "../sensors.hpp"
+#include "../wireless.hpp"
 
 namespace Sensors
 {

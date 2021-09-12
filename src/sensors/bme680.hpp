@@ -13,15 +13,19 @@ namespace Sensors
 {
     static Bsec bme680;
 
-    bsec_virtual_sensor_t sensor_list[12] = {
+    bsec_virtual_sensor_t sensor_list_fast[5] = {
+        BSEC_OUTPUT_RAW_TEMPERATURE,
         BSEC_OUTPUT_RAW_PRESSURE,
+        BSEC_OUTPUT_RAW_HUMIDITY,
+        BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
+        BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY};
+
+    bsec_virtual_sensor_t sensor_list[9] = {
         BSEC_OUTPUT_RAW_GAS,
         BSEC_OUTPUT_IAQ,
         BSEC_OUTPUT_STATIC_IAQ,
         BSEC_OUTPUT_CO2_EQUIVALENT,
         BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
-        BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
-        BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
         BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
         BSEC_OUTPUT_COMPENSATED_GAS,
         BSEC_OUTPUT_STABILIZATION_STATUS,
@@ -34,6 +38,7 @@ namespace Sensors
             if (bme680.status < BSEC_OK)
             {
                 Wireless::log("BSEC error code : " + String(bme680.status));
+                debugI2C();
             }
             else
             {
@@ -56,13 +61,13 @@ namespace Sensors
 
     void initBME680()
     {
-        debugI2C();
-        bme680.begin(0x77, Wire);
+        bme680.begin(BME680_ADDR, Wire);
         Serial.println("BSEC library version " + String(bme680.version.major) + "." + String(bme680.version.minor) + "." + String(bme680.version.major_bugfix) + "." + String(bme680.version.minor_bugfix));
         bme680.setConfig(bsec_config_iaq);
         checkBME680();
-        bme680.setTemperatureOffset(9);
-        bme680.updateSubscription(sensor_list, 12, BSEC_SAMPLE_RATE_LP);
+        bme680.setTemperatureOffset(TEMP_OFFSET);
+        bme680.updateSubscription(sensor_list, 9, BSEC_SAMPLE_RATE_ULP);
+        bme680.updateSubscription(sensor_list_fast, 5, BSEC_SAMPLE_RATE_LP);
         checkBME680();
     }
 

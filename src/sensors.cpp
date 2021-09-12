@@ -115,6 +115,7 @@ namespace Sensors
 
     void TaskSensorsCalibrateRun(void *parameter)
     {
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
         for (;;)
         {
 #ifdef ENABLE_MHZ
@@ -135,13 +136,13 @@ namespace Sensors
 
             // Show status
             Leds::setStatus(max(0, min((co2 - 500) / 11, 255)));
-            vTaskDelay(20000 / portTICK_PERIOD_MS);
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
         }
     }
 
     void debugI2C()
     {
-        Serial.println(" Scanning I2C Addresses");
+        Wireless::log("Scanning I2C Addresses");
         uint8_t cnt = 0;
         for (uint8_t i = 0; i < 128; i++)
         {
@@ -149,20 +150,11 @@ namespace Sensors
             uint8_t ec = Wire.endTransmission(true);
             if (ec == 0)
             {
-                if (i < 16)
-                    Serial.print('0');
-                Serial.print(i, HEX);
+                Wireless::log("Found device on " + String(i, HEX));
                 cnt++;
             }
-            else
-                Serial.print("..");
-            Serial.print(' ');
-            if ((i & 0x0f) == 0x0f)
-                Serial.println();
         }
-        Serial.print("Scan Completed, ");
-        Serial.print(cnt);
-        Serial.println(" I2C Devices found.");
+        Wireless::log("Scan Completed " + String(cnt) + " found");
     }
 
     void ema_filter(uint16_t current_value, uint16_t *exponential_average)
