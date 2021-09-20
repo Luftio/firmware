@@ -135,7 +135,7 @@ namespace Sensors
 #endif
 
             // Show status
-            Leds::setStatus(max(0, min((co2 - 500) / 11, 255)));
+            Leds::setStatus(max(0, min((co2 - 500) / 8, 255)));
             vTaskDelay(30000 / portTICK_PERIOD_MS);
         }
     }
