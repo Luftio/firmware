@@ -3,13 +3,9 @@ const fs = require("fs");
 const http = require("http");
 const axios = require("axios");
 
-const DEVICE_IDS = [
-  "6f9b08d0-082b-11ec-b0b4-4109bdb75ac7",
-  "47fb2e10-0f40-11ec-b0b4-4109bdb75ac7",
-  "5283abe0-1338-11ec-ae6c-0532fcdf2157",
-];
+const DEVICE_LABELS = ["***REMOVED***"];
 const TOKEN =
-  "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0b21hc0BsdWZ0aW8uY3oiLCJzY29wZXMiOlsiVEVOQU5UX0FETUlOIl0sInVzZXJJZCI6IjVlNzIyMDEwLTMyNjctMTFlYi1iY2ZlLTI3MGVlOTQxNGYxYSIsImZpcnN0TmFtZSI6IlRvbcOhxaEiLCJsYXN0TmFtZSI6Ik1hcnR5a8OhbiIsImVuYWJsZWQiOnRydWUsImlzUHVibGljIjpmYWxzZSwidGVuYW50SWQiOiI1MWI3NGU0MC0zMjY3LTExZWItYmNmZS0yNzBlZTk0MTRmMWEiLCJjdXN0b21lcklkIjoiMTM4MTQwMDAtMWRkMi0xMWIyLTgwODAtODA4MDgwODA4MDgwIiwiaXNzIjoidGhpbmdzYm9hcmQuaW8iLCJpYXQiOjE2Mjk3MzcxNTgsImV4cCI6MTYzNDU3NTU1OH0.E2LKw1o7jZStxgG9-kAj_TnhlmhIdB5RllALvezpPc7KBIc62Hf-mLvssc1YfkgnY3GX1xr0xVvUhJRnODtOHg";
+  "Bearer ***REMOVED***";
 
 const server = http.createServer((req, res) => {
   console.log("Received request");
@@ -40,7 +36,21 @@ server.listen(8080, async () => {
   });
   console.log("Serving at " + url);
 
-  for (const DEVICE_ID of DEVICE_IDS) {
+  const response = await axios
+    .get("https://app.luftio.com/api/tenant/devices?page=0&pageSize=100", {
+      headers: {
+        "X-Authorization": TOKEN,
+      },
+    })
+    .catch((error) => {
+      console.log(error.response.data);
+    });
+  const deviceIds = response.data.data
+    .filter((it) => DEVICE_LABELS.includes(it.label))
+    .map((it) => it.id.id);
+  console.log(deviceIds);
+
+  for (const DEVICE_ID of deviceIds) {
     await axios
       .post(
         "https://app.luftio.com/api/plugins/rpc/twoway/" + DEVICE_ID,
