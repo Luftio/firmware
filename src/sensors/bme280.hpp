@@ -28,7 +28,9 @@ namespace Sensors
 
     void readBME280()
     {
-        bme.takeForcedMeasurement();
+        if(!bme.takeForcedMeasurement()) {
+            Wireless::log("BME280 take measurement failed!");
+        }
         uint16_t new_temp = round(bme.readTemperature() * 10);
         Serial.print("BME raw temp: ");
         Serial.print(new_temp);

@@ -2,11 +2,16 @@ const ngrok = require("ngrok");
 const fs = require("fs");
 const http = require("http");
 const axios = require("axios");
+require("dotenv");
 
-const DEVICE_LABELS = ["***REMOVED***"];
-const TOKEN =
-  "Bearer ***REMOVED***";
+if (!process.argv[2]) {
+  console.log("You must add the device label as an argument");
+  return;
+}
 
+const DEVICE_LABELS = [process.argv[2]];
+console.log(DEVICE_LABELS);
+const TOKEN = process.env.token;
 const server = http.createServer((req, res) => {
   console.log("Received request");
   console.log(req.headers);
@@ -32,7 +37,7 @@ server.listen(8080, async () => {
     bind_tls: false,
     proto: "http",
     addr: 8080,
-    authtoken: "***REMOVED***",
+    authtoken: process.env.NGROK_TOKEN,
   });
   console.log("Serving at " + url);
 

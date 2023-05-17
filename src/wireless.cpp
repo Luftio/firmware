@@ -4,6 +4,8 @@
 #include "PubSubClient.h"
 #include "ArduinoJson.h"
 #include "rom/rtc.h"
+#include "Preferences.h"
+#include "esp_wifi.h"
 
 #include "wireless.hpp"
 #include "sensors.hpp"
@@ -64,11 +66,12 @@ namespace Wireless
 
         for (;;)
         {
-            if (WiFi.softAPgetStationNum() != 0)
+            unsigned long now = millis();
+            if (WiFi.softAPgetStationNum() > 0)
             {
-                idleTimer = millis();
+                idleTimer = now;
             }
-            else if (millis() > 120000 && idleTimer < millis() - 120000)
+            else if (now > 120000 && idleTimer < now - 120000)
             {
                 String savedWifi = preferences.getString("wifi_name", "");
                 if (savedWifi.length() != 0)
@@ -156,29 +159,39 @@ namespace Wireless
     bool lightSet = false;
     long lastUpload = 0;
     long lastReconnectAttempt = 0;
+    long reconnectAttempts = 0;
 
     void loop()
     {
         if (WiFi.status() != WL_CONNECTED)
         {
+            Serial.println("WiFi not connected");
             connect();
             return;
         }
         unsigned long now = millis();
         if (!mqttClient.connected())
         {
-            if (now - lastReconnectAttempt > 5000)
+            if (reconnectAttempts > 20) {
+                Serial.println("No access to server");
+                // No access to server
+                provision();
+            } 
+            else if (now - lastReconnectAttempt > 5000)
             {
                 Serial.println("MQTT attempting reconnect");
                 lastReconnectAttempt = now;
+                reconnectAttempts++;
                 if (mqttReconnect())
                 {
+                    reconnectAttempts = 0;
                     lastReconnectAttempt = 0;
                 }
             }
         }
         else
         {
+            reconnectAttempts = 0;
             mqttClient.loop();
 
             if (now - lastUpload > 60000)
@@ -208,7 +221,7 @@ namespace Wireless
             body += FW_VERSION;
             body += "\"}";
             mqttClient.publish("v1/devices/me/attributes", body.c_str());
-            log("MQTT reconnected, uptime " + String((long)esp_timer_get_time() / 1000000, 10) + "s, reason " + rtc_get_reset_reason(0) + " v" + FW_VERSION);
+            log("MQTT reconnected, uptime " + String((long)esp_timer_get_time() / 1000000, 10) + "s, reason " + rtc_get_reset_reason(0) + "/"+ esp_reset_reason() +" v" + FW_VERSION);
         }
         else
         {
@@ -227,13 +240,13 @@ namespace Wireless
             {
                 Leds::setAnimation(Leds::STANDARD);
             }
-            else if (doc["light"] == "off")
-            {
-                Leds::setAnimation(Leds::OFF);
-            }
             else if (doc["light"] == "lamp")
             {
                 Leds::setAnimation(Leds::LAMP);
+            }
+            else 
+            {
+                Leds::setAnimation(Leds::OFF);
             }
         }
         if (doc.containsKey("brightness"))

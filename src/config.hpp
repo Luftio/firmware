@@ -4,15 +4,17 @@
 
 #define WIFI_ID "LUFTIO_"
 
-#define HW_VERSION 2
-#define FW_VERSION "hw_" STR(HW_VERSION) "-v110"
+#define HW_VERSION 3
+#define FW_VERSION "hw_" STR(HW_VERSION) "-v113"
 
 #define MQTT_SERVER "app.luftio.com"
 #define MQTT_PORT 1883
 #define MQTT_VERSION_3_1
 
 // Access token key
-const uint8_t apiEncrypt[6] = {***REMOVED***};
+// config-secret includes the definition for API_SECRET
+#include "config-secret.hpp"
+const uint8_t apiEncrypt[6] = API_SECRET;
 
 // HW configs
 #if HW_VERSION == 1

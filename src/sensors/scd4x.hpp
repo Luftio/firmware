@@ -22,6 +22,7 @@ namespace Sensors
         {
             errorToString(error, errorMessage, 256);
             Wireless::log("SCD4X: Error trying to execute getDataReadyStatus():" + String(errorMessage));
+            debugI2C();
         }
 
         uint16_t tmp_co2;

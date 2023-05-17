@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Preferences.h"
-#include "esp_wifi.h"
-
 namespace Wireless
 {
     void begin();

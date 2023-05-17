@@ -71,14 +71,17 @@ namespace Leds
         }
         else if (animation == OFF)
         {
-            FastLED.clear(true);
-            delay(3);
+            FastLED.showColor(CRGB::Purple, 0);
             FastLED.clear(true);
         }
 
         if (animation == STARTUP || animation == SETUP)
         {
             vTaskDelay(20 / portTICK_PERIOD_MS);
+        }
+        else if (animation == OFF)
+        {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
         else
         {
